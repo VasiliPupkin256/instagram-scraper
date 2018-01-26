@@ -1067,7 +1067,7 @@ def main():
     parser.add_argument('--retry-forever', action='store_true', default=False,
                         help='Retry download attempts endlessly when errors are received')
     parser.add_argument('--verbose', '-v', type=int, default=0, help='Logging verbosity level')
-    parser.add_argument('--template', '-T', type=str, default='{username}.{year}-{month}-{day} {h}{m}{s}.{id}', help='Costumize filename template')
+    parser.add_argument('--template', '-T', type=str, default='{username}.{year}-{month}-{day} {h}{m}{s}.{id}', help='Customize filename template')
 
     args = parser.parse_args()
 
