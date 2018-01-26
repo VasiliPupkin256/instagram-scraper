@@ -803,8 +803,7 @@ class InstagramScraper(object):
 
     def download(self, item, save_dir='./'):
         """Downloads the media file."""
-        for url in item['urls']:
-            base_name = url.split('/')[-1].split('?')[0]
+        for url, base_name in self.templatefilename(item):
             file_path = os.path.join(save_dir, base_name)
 
             if not os.path.isfile(file_path):
@@ -879,28 +878,27 @@ class InstagramScraper(object):
                         media_file.truncate(downloaded)
                 
                 if downloaded == total_length:
+                    os.rename(part_file, file_path)
                     timestamp = self.__get_timestamp(item)
                     file_time = int(timestamp if timestamp else time.time())
-                    customfilename = self.templatefilename(item)
-                    custom_path = os.path.join(save_dir, customfilename)
-                    os.rename(part_file, custom_path)
-                    os.utime(custom_path, (file_time, file_time))
+                    os.utime(file_path, (file_time, file_time))
 
     def templatefilename(self, item):
-        template = self.template
-        template_values = {'username': str(self.username[0]),
-                           'id':item['urls'][0].split('/')[-1].split('.')[-2],
-                          'datetime': time.strftime('%Y%m%d %Hh%Mm%Ss', time.localtime(self.__get_timestamp(item))),
-                          'date': time.strftime('%Y%m%d', time.localtime(self.__get_timestamp(item))),
-                          'year': time.strftime('%Y', time.localtime(self.__get_timestamp(item))),
-                          'month': time.strftime('%m', time.localtime(self.__get_timestamp(item))),
-                          'day': time.strftime('%d', time.localtime(self.__get_timestamp(item))),
-                          'h': time.strftime('%Hh', time.localtime(self.__get_timestamp(item))),
-                          'm': time.strftime('%Mm', time.localtime(self.__get_timestamp(item))),
-                          's': time.strftime('%Ss', time.localtime(self.__get_timestamp(item)))}
-        filetype = item['urls'][0].split('.')[-1]
-        customfilename = str(template.format(**template_values) + '.' + filetype)
-        return customfilename
+        for url in item['urls']:
+            template = self.template
+            template_values = {'username': str(self.username[0]),
+                               'id': url.split('/')[-1].split('.')[-2],
+                               'datetime': time.strftime('%Y%m%d %Hh%Mm%Ss', time.localtime(self.__get_timestamp(item))),
+                               'date': time.strftime('%Y%m%d', time.localtime(self.__get_timestamp(item))),
+                               'year': time.strftime('%Y', time.localtime(self.__get_timestamp(item))),
+                               'month': time.strftime('%m', time.localtime(self.__get_timestamp(item))),
+                               'day': time.strftime('%d', time.localtime(self.__get_timestamp(item))),
+                               'h': time.strftime('%Hh', time.localtime(self.__get_timestamp(item))),
+                               'm': time.strftime('%Mm', time.localtime(self.__get_timestamp(item))),
+                               's': time.strftime('%Ss', time.localtime(self.__get_timestamp(item)))}
+            filetype = url.split('.')[-1]
+            customfilename = str(template.format(**template_values) + '.' + filetype)
+            yield url, customfilename
 
     def is_new_media(self, item):
         """Returns True if the media is new."""
