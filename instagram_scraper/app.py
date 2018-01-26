@@ -85,7 +85,8 @@ class InstagramScraper(object):
                             latest_stamps=False,
                             media_types=['image', 'video', 'story-image', 'story-video'],
                             tag=False, location=False, search_location=False, comments=False,
-                            verbose=0, include_location=False, filter=None)
+                            verbose=0, include_location=False, filter=None,
+                            template='{username}.{year}-{month}-{day} {h}{m}{s}.{id}')
 
         allowed_attr = list(default_attr.keys())
         default_attr.update(kwargs)
@@ -878,10 +879,28 @@ class InstagramScraper(object):
                         media_file.truncate(downloaded)
                 
                 if downloaded == total_length:
-                    os.rename(part_file, file_path)
                     timestamp = self.__get_timestamp(item)
                     file_time = int(timestamp if timestamp else time.time())
-                    os.utime(file_path, (file_time, file_time))
+                    customfilename = self.templatefilename(item)
+                    custom_path = os.path.join(save_dir, customfilename)
+                    os.rename(part_file, custom_path)
+                    os.utime(custom_path, (file_time, file_time))
+
+    def templatefilename(self, item):
+        template = self.template
+        template_values = {'username': str(self.username[0]),
+                           'id':item['urls'][0].split('/')[-1].split('.')[-2],
+                          'datetime': time.strftime('%Y%m%d %Hh%Mm%Ss', time.localtime(self.__get_timestamp(item))),
+                          'date': time.strftime('%Y%m%d', time.localtime(self.__get_timestamp(item))),
+                          'year': time.strftime('%Y', time.localtime(self.__get_timestamp(item))),
+                          'month': time.strftime('%m', time.localtime(self.__get_timestamp(item))),
+                          'day': time.strftime('%d', time.localtime(self.__get_timestamp(item))),
+                          'h': time.strftime('%Hh', time.localtime(self.__get_timestamp(item))),
+                          'm': time.strftime('%Mm', time.localtime(self.__get_timestamp(item))),
+                          's': time.strftime('%Ss', time.localtime(self.__get_timestamp(item)))}
+        filetype = item['urls'][0].split('.')[-1]
+        customfilename = str(template.format(**template_values) + '.' + filetype)
+        return customfilename
 
     def is_new_media(self, item):
         """Returns True if the media is new."""
@@ -996,6 +1015,23 @@ def main():
 
         You can add all arguments you want to that file, just remember to have
         one argument per line.
+        
+        Customize filename:
+        by adding option --template or -T
+        Default is : {username}.{year}-{month}-{day} {h}{m}{s}.{id}
+        And there are some option:
+        {username} : Instagram user(s) to scrape. 
+        {id} : filename form url.
+        {datetime} : date and time that photo/video post on,
+                     format is :20180101 01h01m01s
+        {date} : date that photo/video post on,
+                 format is : 20180101
+        {year} : format is : 2018
+        {month} : format is : 01-12
+        {day} : format is : 01-31
+        {h} : hour, format is : 00-23h
+        {m} : minute, format is 00-59m
+        {s} : second, format is 00-59s
 
         """),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1031,6 +1067,7 @@ def main():
     parser.add_argument('--retry-forever', action='store_true', default=False,
                         help='Retry download attempts endlessly when errors are received')
     parser.add_argument('--verbose', '-v', type=int, default=0, help='Logging verbosity level')
+    parser.add_argument('--template', '-T', type=str, default='{username}.{year}-{month}-{day} {h}{m}{s}.{id}', help='Costumize filename template')
 
     args = parser.parse_args()
 
