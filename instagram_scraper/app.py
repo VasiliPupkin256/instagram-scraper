@@ -19,6 +19,7 @@ import textwrap
 import time
 import xml.etree.ElementTree as ET
 import moviepy.editor as mpe
+from datetime import datetime
 
 try:
     from urllib.parse import urlparse
@@ -33,6 +34,8 @@ import requests.packages.urllib3.util.connection as urllib3_connection
 import tqdm
 
 from instagram_scraper.constants import *
+
+STORIES_UA = 'Instagram 146.0.0.27.125 Android (23/6.0.1; 640dpi; 1440x2560; samsung; SM-G930F; herolte; samsungexynos8890; en_US)'
 
 try:
     reload(sys)  # Python 2.7
@@ -91,7 +94,7 @@ class InstagramScraper(object):
                             login_user=None, login_pass=None,
                             followings_input=False, followings_output='profiles.txt',
                             destination='./', logger=None, retain_username=False, interactive=False,
-                            quiet=False, maximum=0, media_metadata=False, profile_metadata=False, latest=False,
+                            quiet=False, maximum=None, media_metadata=False, profile_metadata=False, latest=False,
                             latest_stamps=False, cookiejar=None, filter_location=None, filter_locations=None,
                             media_types=['image', 'video', 'story-image', 'story-video', 'broadcast'],
                             tag=False, location=False, search_location=False, comments=False,
@@ -246,11 +249,19 @@ class InstagramScraper(object):
         """Logs in to instagram."""
         self.session.headers.update({'Referer': BASE_URL, 'user-agent': STORIES_UA})
         req = self.session.get(BASE_URL)
+        
+        self.logger.debug(req)
+        self.logger.debug(self.session.headers)
+        self.logger.debug(req.cookies)
 
         self.session.headers.update({'X-CSRFToken': req.cookies['csrftoken']})
 
-        login_data = {'username': self.login_user, 'password': self.login_pass}
+        enc_password = '#PWD_INSTAGRAM_BROWSER:0:{}:{}'.format(int(datetime.now().timestamp()), self.login_pass)
+        login_data = {'username': self.login_user, 'enc_password': enc_password}
         login = self.session.post(LOGIN_URL, data=login_data, allow_redirects=True)
+        self.logger.debug(login.text)
+        self.logger.debug(self.session.headers)
+        self.logger.debug(login.cookies)
         self.session.headers.update({'X-CSRFToken': login.cookies['csrftoken']})
         self.cookies = login.cookies
         login_text = json.loads(login.text)
@@ -491,7 +502,7 @@ class InstagramScraper(object):
                         self.posts.append(item)
 
                     iter = iter + 1
-                    if self.maximum != 0 and iter >= self.maximum:
+                    if self.maximum and iter >= self.maximum:
                         break
 
                 if future_to_item:
@@ -781,7 +792,7 @@ class InstagramScraper(object):
                     future_to_item[future] = item
 
                 iter = iter + 1
-                if self.maximum != 0 and iter >= self.maximum:
+                if self.maximum and iter >= self.maximum:
                     break
 
     def get_broadcasts(self, dst, executor, future_to_item, user):
@@ -792,14 +803,14 @@ class InstagramScraper(object):
 
             # Downloads the user's broadcasts and sends it to the executor.
             iter = 0
-            for item in tqdm.tqdm(broadcasts, desc='Searching {0} for stories'.format(user['username']), unit=" media",
+            for item in tqdm.tqdm(broadcasts, desc='Searching {0} for broadcasts'.format(user['username']), unit=" media",
                                   disable=self.quiet):
                 item['username'] = user['username']
                 future = executor.submit(self.worker_wrapper, self.dowload_broadcast, item, dst)
                 future_to_item[future] = item
 
                 iter = iter + 1
-                if self.maximum != 0 and iter >= self.maximum:
+                if self.maximum and iter >= self.maximum:
                     break
 
     def get_media(self, dst, executor, future_to_item, user):
@@ -846,7 +857,7 @@ class InstagramScraper(object):
                 self.posts.append(item)
 
             iter = iter + 1
-            if self.maximum != 0 and iter >= self.maximum:
+            if self.maximum and iter >= self.maximum:
                 break
 
     def get_shared_data_userinfo(self, username=''):
@@ -962,7 +973,7 @@ class InstagramScraper(object):
 
             return broadcasts
 
-        return None
+        return []
 
     def query_media_gen(self, user, end_cursor=''):
         """Generator for media."""
@@ -1505,7 +1516,7 @@ def main():
     parser.add_argument('--followings-output', '--followings_output', help='Output followings-input to file in destination')
     parser.add_argument('--filename', '-f', help='Path to a file containing a list of users to scrape')
     parser.add_argument('--quiet', '-q', default=False, action='store_true', help='Be quiet while scraping')
-    parser.add_argument('--maximum', '-m', type=int, default=0, help='Maximum number of items to scrape')
+    parser.add_argument('--maximum', '-m', type=int, default=None, help='Maximum number of items to scrape')
     parser.add_argument('--retain-username', '--retain_username', '-n', action='store_true', default=False,
                         help='Creates username subdirectory when destination flag is set')
     parser.add_argument('--media-metadata', '--media_metadata', action='store_true', default=False,
